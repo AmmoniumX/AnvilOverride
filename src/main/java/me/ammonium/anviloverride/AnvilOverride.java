@@ -18,24 +18,18 @@ public final class AnvilOverride extends JavaPlugin implements Listener {
     enum ToolType{ DIGGING, SWORD, ARMOR, ANY }
 
     boolean matchesToolType(ToolType type, Material item){
-        switch (type){
-            case ARMOR -> {
+            if(type == ToolType.ARMOR) {
                 return StringUtils.endsWithAny(item.toString(), new String[]{"HELMET", "CHESTPLATE",
                 "LEGGINGS", "BOOTS"}); }
 
-            case SWORD -> { return item.toString().endsWith("SWORD"); }
+            else if (type == ToolType.SWORD) { return item.toString().endsWith("SWORD"); }
 
-            case DIGGING -> {
+            else if (type == ToolType.DIGGING) {
                 return StringUtils.endsWithAny(item.toString(), new String[]{"PICKAXE", "AXE",
                         "SHOVEL"}); }
 
-            case ANY -> {return true;}
-
-            default -> {
-                return false;
-            }
+            else return type == ToolType.ANY;
         }
-    }
 
 
     @Override
@@ -123,26 +117,26 @@ public final class AnvilOverride extends JavaPlugin implements Listener {
             anvilInventory.setResult(firstItem);
             e.setResult(firstItem);
 
-        } else if (anvilInventory.getResult() != null){
-            // if there's no unsafe enchantments to add, still override to make sure already existing unsafe
-            // enchantments aren't removed
-            ItemStack vanillaResult = anvilInventory.getResult();
-            Map<Enchantment, Integer> vanillaResultEnchantments = vanillaResult.getEnchantments();
-
-            for (Enchantment differentEnchantment: firstItemEnchantments.keySet()) {
-                if(!vanillaResultEnchantments.containsKey(differentEnchantment) ||
-                    vanillaResultEnchantments.get(differentEnchantment) <
-                    firstItemEnchantments.get(differentEnchantment)){
-                    // big check to see if vanilla anvil mechanics removed unsafe enchantment
-                    System.out.println("Vanilla anvil removed unsafe enchant, readding...");
-                    vanillaResult.addUnsafeEnchantment(differentEnchantment, firstItemEnchantments.get(differentEnchantment));
-                }
-            }
-
-            anvilInventory.setResult(vanillaResult);
-            e.setResult(vanillaResult);
-
         }
+        // override to make sure already existing unsafe enchantments aren't removed
+        ItemStack vanillaResult = anvilInventory.getResult();
+        assert vanillaResult != null;
+        Map<Enchantment, Integer> vanillaResultEnchantments = vanillaResult.getEnchantments();
+
+        for (Enchantment differentEnchantment: firstItemEnchantments.keySet()) {
+            if(!vanillaResultEnchantments.containsKey(differentEnchantment) ||
+                vanillaResultEnchantments.get(differentEnchantment) <
+                firstItemEnchantments.get(differentEnchantment)){
+                // big check to see if vanilla anvil mechanics removed unsafe enchantment
+                System.out.println("Vanilla anvil removed unsafe enchant, readding...");
+                vanillaResult.addUnsafeEnchantment(differentEnchantment, firstItemEnchantments.get(differentEnchantment));
+            }
+        }
+
+        anvilInventory.setResult(vanillaResult);
+        e.setResult(vanillaResult);
+
+
 
         if (anvilInventory.getRepairCost() >= anvilInventory.getMaximumRepairCost()) {
             anvilInventory.setRepairCost(anvilInventory.getRepairCost() % anvilInventory.getMaximumRepairCost());
