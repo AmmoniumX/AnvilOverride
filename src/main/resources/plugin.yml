@@ -1,0 +1,4 @@
+name: AnvilOverride
+version: ${project.version}
+main: me.ammonium.anviloverride.AnvilOverride
+api-version: 1.16
