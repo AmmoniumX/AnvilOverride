@@ -1,6 +1,5 @@
 package me.ammonium.anviloverride;
 
-import org.apache.commons.lang.StringUtils;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.event.EventHandler;
@@ -11,26 +10,12 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.EnchantmentStorageMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.HashMap;
 import java.util.Map;
 
+import static org.bukkit.enchantments.Enchantment.DAMAGE_ALL;
+
 public final class AnvilOverride extends JavaPlugin implements Listener {
-
-    enum ToolType{ DIGGING, SWORD, ARMOR, ANY }
-
-    boolean matchesToolType(ToolType type, Material itemType){
-            if(type == ToolType.ARMOR) {
-                return StringUtils.endsWithAny(itemType.toString(), new String[]{"HELMET", "CHESTPLATE",
-                "LEGGINGS", "BOOTS"}); }
-
-            else if (type == ToolType.SWORD) { return itemType.toString().endsWith("SWORD"); }
-
-            else if (type == ToolType.DIGGING) {
-                return StringUtils.endsWithAny(itemType.toString(), new String[]{"PICKAXE", "AXE",
-                        "SHOVEL"}); }
-
-            else return type == ToolType.ANY;
-        }
-
 
     @Override
     public void onEnable() {
@@ -46,60 +31,57 @@ public final class AnvilOverride extends JavaPlugin implements Listener {
 
     @EventHandler
     public void onPrepareAnvilEvent(PrepareAnvilEvent e) {
-        Enchantment applyEnchantment = null;
-        Integer enchantmentLevel = null;
+        Map<Enchantment, Integer> applyEnchantments = new HashMap<>();
         AnvilInventory anvilInventory = e.getInventory();
-        ItemStack secondItem = anvilInventory.getSecondItem();
-        ToolType toolType = null;
+        ItemStack secondItem = anvilInventory.getItem(1);
 
-        if(secondItem == null || anvilInventory.getFirstItem() == null){
+        if(secondItem == null || anvilInventory.getItem(0) == null){
             return;
         }
         if(secondItem.getType().equals(Material.ENCHANTED_BOOK)) {
             EnchantmentStorageMeta enchantmentStorageMeta = (EnchantmentStorageMeta)secondItem.getItemMeta();
             Map<Enchantment, Integer> enchantments = enchantmentStorageMeta.getStoredEnchants();
 
-            if(enchantments.get(Enchantment.DAMAGE_ALL) != null) {
-                if (enchantments.get(Enchantment.DAMAGE_ALL) > 5) {
-                    applyEnchantment = Enchantment.DAMAGE_ALL;
-                    enchantmentLevel = enchantments.get(Enchantment.DAMAGE_ALL);
-                    toolType = ToolType.SWORD;
+            if(enchantments.get(DAMAGE_ALL) != null) {
+                if (enchantments.get(DAMAGE_ALL) > 5) {
+                    applyEnchantments.put(DAMAGE_ALL, enchantments.get(DAMAGE_ALL));
                 }
             }
 
             if(enchantments.get(Enchantment.PROTECTION_ENVIRONMENTAL) != null) {
                 if(enchantments.get(Enchantment.PROTECTION_ENVIRONMENTAL) > 4){
-                    applyEnchantment = Enchantment.PROTECTION_ENVIRONMENTAL;
-                    enchantmentLevel = enchantments.get(Enchantment.PROTECTION_ENVIRONMENTAL);
-                    toolType = ToolType.ARMOR;
+                    applyEnchantments.put(Enchantment.PROTECTION_ENVIRONMENTAL,
+                            enchantments.get(Enchantment.PROTECTION_ENVIRONMENTAL));
                 }
             }
 
             if(enchantments.get(Enchantment.DURABILITY) != null){
                 if(enchantments.get(Enchantment.DURABILITY) > 3){
-                    applyEnchantment = Enchantment.DURABILITY;
-                    enchantmentLevel = enchantments.get(Enchantment.DURABILITY);
-                    toolType = ToolType.ANY;
+
+                    applyEnchantments.put(Enchantment.DURABILITY,
+                            enchantments.get(Enchantment.DURABILITY));
                 }
             }
 
             if(enchantments.get(Enchantment.DIG_SPEED) != null){
                 if(enchantments.get(Enchantment.DIG_SPEED) > 5){
-                    applyEnchantment = Enchantment.DIG_SPEED;
-                    enchantmentLevel = enchantments.get(Enchantment.DIG_SPEED);
-                    toolType = ToolType.DIGGING;
+
+                    applyEnchantments.put(Enchantment.DIG_SPEED,
+                            enchantments.get(Enchantment.DIG_SPEED));
                 }
             }
 
 
         }
 
-        ItemStack firstItem = anvilInventory.getFirstItem().clone();
+        ItemStack firstItem = anvilInventory.getItem(0).clone();
         Map<Enchantment, Integer> firstItemEnchantments = firstItem.getEnchantments();
 
         // override to make sure already existing unsafe enchantments aren't removed
-        ItemStack resultItem = anvilInventory.getResult();
-        assert resultItem != null;
+
+        if(anvilInventory.getItem(2) == null){ return; }
+
+        ItemStack resultItem = anvilInventory.getItem(2).clone();
         Map<Enchantment, Integer> vanillaResultEnchantments = resultItem.getEnchantments();
 
         for (Enchantment differentEnchantment: firstItemEnchantments.keySet()) {
@@ -112,32 +94,37 @@ public final class AnvilOverride extends JavaPlugin implements Listener {
             }
         }
 
-        if(applyEnchantment != null && enchantmentLevel != null) {
+        if(applyEnchantments.size() > 0) {
+            for (Enchantment applyEnchantment: applyEnchantments.keySet()) {
+                Integer enchantmentLevel = applyEnchantments.get(applyEnchantment);
 
-            // add unsafe enchantments if needed
-            System.out.println("Attempting to add unsafe enchantment...");
-            System.out.println("Enchantment to add: " + applyEnchantment + ": Lvl." + enchantmentLevel);
+                // add unsafe enchantments if needed
+                System.out.println("Attempting to add unsafe enchantment...");
+                System.out.println("Enchantment to add: " + applyEnchantment + ": Lvl." + enchantmentLevel);
 
-            if (vanillaResultEnchantments.get(applyEnchantment) != null) {
-                if (vanillaResultEnchantments.get(applyEnchantment) >= enchantmentLevel) {
-                    return;
+                if (vanillaResultEnchantments.get(applyEnchantment) != null) {
+                    if (vanillaResultEnchantments.get(applyEnchantment) > enchantmentLevel) {
+                        System.out.println("Already has a higher encantment level: " +
+                                vanillaResultEnchantments.get(applyEnchantment));
+                        resultItem.addUnsafeEnchantment(applyEnchantment,  vanillaResultEnchantments.get(applyEnchantment));
+                    } else {
+                        boolean matchesType = applyEnchantment.canEnchantItem(resultItem);
+                        System.out.println("Matches type: " + matchesType);
+                        if (matchesType) {
+                            // adds enchantment only if it is compatible
+                            resultItem.addUnsafeEnchantment(applyEnchantment, enchantmentLevel);
+                            System.out.println("Added unsafe enchantment.");
+                            System.out.println(resultItem.getEnchantments().toString());
+                        } else {
+                            System.out.println("Item doesn't match enchantment's tool type.");
+                        }
+                    }
                 }
             }
-            if (matchesToolType(toolType, resultItem.getType())) {
-                // adds enchantment only if it is compatible
-                resultItem.addUnsafeEnchantment(applyEnchantment, enchantmentLevel);
-            } else {
-                System.out.println("Item doesn't match enchantment's tool type.");
-            }
-
-            anvilInventory.setResult(resultItem);
-            e.setResult(resultItem);
-
         }
 
-        if (anvilInventory.getRepairCost() >= anvilInventory.getMaximumRepairCost()) {
-            anvilInventory.setRepairCost(anvilInventory.getRepairCost() % anvilInventory.getMaximumRepairCost());
-        }
+        anvilInventory.setItem(2, resultItem);
+        e.setResult(resultItem);
 
     }
 
